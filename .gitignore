@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+experiment/results/*.json
+experiment/results/*.csv
+!experiment/results/.gitkeep
+experiment/data/rockyou.txt
+.DS_Store
+
+*.db

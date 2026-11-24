@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block heading %}Log in{% endblock %}
+{% block content %}
+<form method="post" action="{{ url_for('login') }}">
+  <label for="username">Username</label>
+  <input id="username" name="username" autocomplete="username">
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password">
+  <!-- [Kimse] OTP field is here for when MFA is enabled -->
+  <label for="otp">One-time code (if MFA is on)</label>
+  <input id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code">
+  <button type="submit">Log in</button>
+</form>
+<p><a href="{{ url_for('register') }}">Create an account</a></p>
+{% endblock %}

@@ -1,0 +1,4 @@
+# Core experiment dependencies. The harness degrades gracefully if these are
+# missing (falls back to stdlib), but install them for the real runs.
+argon2-cffi>=23.1.0
+pyotp>=2.9.0
