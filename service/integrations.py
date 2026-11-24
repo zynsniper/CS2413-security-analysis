@@ -6,7 +6,11 @@ Keeping the seams here means app.py never has to be restructured.
 """
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import math
+import struct
 import unicodedata
 from collections import deque
 from functools import lru_cache
@@ -149,18 +153,73 @@ def check_rate_limit(ip: str, now: float) -> bool:
 
 
 # --------------------------------------------------------------- Kimse: TOTP MFA
+TOTP_PERIOD = 30
+TOTP_DIGITS = 6
+TOTP_DRIFT_STEPS = 1  # accept one step either side for clock drift (RFC 6238 s5.2)
+
+
+def generate_totp_secret() -> str:
+    """New random 160-bit secret, Base32-encoded, for storing in users.totp_secret."""
+    return base64.b32encode(secrets.token_bytes(20)).decode("ascii")
+
+
+def provisioning_uri(secret: str, username: str, issuer: str = "CS2413 Demo") -> str:
+    """otpauth:// URI to render as a QR code for Google Authenticator, Authy, etc."""
+    label = quote(f"{issuer}:{username}")
+    return (
+        f"otpauth://totp/{label}?secret={secret}&issuer={quote(issuer)}"
+        f"&algorithm=SHA1&digits={TOTP_DIGITS}&period={TOTP_PERIOD}"
+    )
+
+
+def _decode_secret(secret: str) -> bytes:
+    cleaned = secret.strip().replace(" ", "").upper()
+    cleaned += "=" * (-len(cleaned) % 8)
+    return base64.b32decode(cleaned)
+
+
+def totp_at(secret: str, step: int) -> str:
+    """The code for one 30-second step (RFC 4226 HOTP dynamic truncation)."""
+    digest = hmac.new(_decode_secret(secret), struct.pack(">Q", step), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    value = struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF
+    return str(value % 10 ** TOTP_DIGITS).zfill(TOTP_DIGITS)
+
+
 def mfa_required(user) -> bool:
-    return Config.MFA_ENABLED and bool(user["totp_secret"])
+    return bool(_setting("MFA_ENABLED")) and bool(user["totp_secret"])
 
 
 def verify_mfa(user, code: str | None, now: float) -> bool:
-    """Verify a submitted TOTP code. NOT IMPLEMENTED in this service.
+    """Verify a submitted TOTP code against the user's stored secret.
 
-    The TOTP defence is implemented and measured in the experiment harness only
-    (experiment/defenses.py, exp5). It was never wired into the Flask app, and no
-    enrolment route writes users.totp_secret, so mfa_required() cannot fire while
-    MFA_ENABLED stays off. Recorded as a scope boundary in report 3.4 and 4.2.
+    Accepts the current step plus or minus TOTP_DRIFT_STEPS, compares in constant
+    time, and rejects reuse of a code (or any earlier step) that already succeeded,
+    so an intercepted code cannot be replayed inside its validity window.
     """
-    if not Config.MFA_ENABLED:
+    if not mfa_required(user):
         return True
-    return False  # deny if MFA is ever enabled without a real check behind it
+
+    if code is None:
+        return False
+    code = code.strip().replace(" ", "")
+    if len(code) != TOTP_DIGITS or not code.isdigit():
+        return False
+
+    secret = user["totp_secret"]
+    current = int(now // TOTP_PERIOD)
+    try:
+        matched = None
+        for step in range(current - TOTP_DRIFT_STEPS, current + TOTP_DRIFT_STEPS + 1):
+            if hmac.compare_digest(totp_at(secret, step), code):
+                matched = step
+    except (binascii.Error, ValueError):
+        return False
+
+    if matched is None:
+        return False
+    with _state_lock:
+        if matched <= _totp_last_step.get(secret, -1):
+            return False
+        _totp_last_step[secret] = matched
+    return True
