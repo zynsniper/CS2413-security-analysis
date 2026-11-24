@@ -12,7 +12,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import integrations as mfa  
 from config import Config  
 
-.
 RFC_SECRET = base64.b32encode(b"12345678901234567890").decode()
 NOW = 1234567890.0
 STEP = int(NOW // mfa.TOTP_PERIOD)
