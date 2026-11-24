@@ -12,6 +12,9 @@ import hmac
 import math
 import struct
 import unicodedata
+import binascii
+import secrets
+from urllib.parse import quote 
 from collections import deque
 from functools import lru_cache
 from pathlib import Path
@@ -26,6 +29,7 @@ from config import Config
 _login_failures: dict[str, int] = {}
 _locked_until: dict[str, float] = {}
 _ip_attempts: dict[str, deque[float]] = {}
+_totp_last_step: dict[str, int] = {}
 _state_lock = RLock()
 
 
@@ -42,6 +46,7 @@ def reset_login_controls():
         _login_failures.clear()
         _locked_until.clear()
         _ip_attempts.clear()
+        _totp_last_step.clear()
 
 
 # ---------------------------------------------------- Bunthong: password policy
