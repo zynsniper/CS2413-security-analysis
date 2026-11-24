@@ -1,59 +1,29 @@
 # 3. Evaluation and Results
 
-Repository: https://github.com/zynsniper/login-security-analysis
+Repository: https://github.com/zynsniper/CS2413-security-analysis
 
-All figures below come from `experiment/run_experiments.py data/top-10000.txt`
-and from the Flask service with the defence flags toggled; the raw output is
-committed at `experiment/results/summary.json`.
+We evaluated storage, password policy, and MFA using synthetic accounts in the experiment harness. We tested account lockout and IP rate limiting separately through the Flask application.
 
-## 3.1 Database breach (storage)
+## 3.1 Database breach: password storage
 
-*Figure 1: MD5 cracking output and bcrypt/Argon2id cracking output.*
+*Figure 1: Offline password recovery using MD5, bcrypt, and Argon2id.
 
-Across identical five-second computational allocations, MD5 enabled 4,633,731
-offline evaluations, compromising 25 out of 100 stored accounts. Standardizing
-on bcrypt restricted guessing throughput to 26 attempts with no accounts
-compromised, and Argon2id to 48 attempts, likewise with none. Rapid hash
-computation inherently privileges adversarial brute-forcing, while memory-hard
-constructs like Argon2id impose intentional overhead that drastically inflates
-the computational expenditure per candidate password — five orders of magnitude
-fewer guesses in the same time budget.
+With a five-second budget per algorithm, MD5 completed 4,633,731 password checks and recovered 25 of 100 passwords. Bcrypt completed 26 checks and Argon2id completed 48, with neither recovering a password. Both substantially reduced guessing throughput compared with MD5. These results reflect the selected settings and test machine. Zero recoveries within this short budget do not establish that passwords cannot be cracked.
 
-## 3.2 Online guessing (lockout)
+## 3.2 Online guessing: lockout and rate limiting
 
-*Figure 2: attempts without lockout and attempts blocked by lockout.*
+*Figures 2a–2b: Correct-password login after five failures, with lockout disabled and enabled.
 
-Disabling defensive controls permitted an automated attack tool to execute 7
-consecutive authentication requests against a target user account unimpeded, and
-the correct password then succeeded (HTTP 302). Enforcing temporary lockout
-mechanics restricted sustained testing by rejecting the subsequent 2 attempts
-once the five-failure threshold activated; the correct password was then refused
-as well (HTTP 423). Though neither harness run achieved takeover, because the
-guess list did not contain the target's password, unthrottled endpoints grant
-persistent exposure, whereas automated account locking establishes a strict
-upper bound on permissible authentication attempts.
+Without lockout, the correct password succeeded after five failed attempts (HTTP 302). With lockout enabled, five failures triggered a 300-second lock, and the correct password was rejected (HTTP 423). Separately, IP rate limiting rejected request 31 within a rolling 60-second window (HTTP 429). Automated tests also verified recovery after simulated lock expiry.
 
-## 3.3 Weak passwords (policy)
+## 3.3 Weak passwords: password policy
 
-*Figure 3: weak password accepted and registration rejection message.*
+*Figure 3: Password-policy acceptance results and Flask registration responses.
 
-Absence of credential validation rules permitted registration across 100% of
-tested profiles, `123456` included. Applying NIST-aligned policy parameters
-restricted successful provisioning to 35 out of 100 attempts, systematically
-rejecting the remaining 65 for falling short of the 15-character minimum. The
-breached-password blocklist never fired: only two entries in the top-10,000 list
-reach 15 characters, so under this policy the length rule screens every common
-password first. Eliminating low-entropy candidates effectively mitigates the
-primary targets exploited during automated spray attacks.
+With the policy disabled, the harness accepted all 100 generated passwords. Enabling the policy accepted 35 and rejected 65 because they were shorter than 15 characters. No additional rejection was attributed to the blocklist because the rejected candidates failed the length check first. This experiment demonstrates length enforcement, but does not separately measure the blocklist’s contribution or resistance to password spraying.
 
-## 3.4 Reused passwords (MFA)
+## 3.4 Reused passwords: MFA
 
-*Figure 4: credential stuffing with MFA disabled and with MFA enabled.*
+*Figure 4: Simulated credential stuffing with MFA disabled and enabled.
 
-Simulated credential stuffing compromised 100 out of 100 single-factor target
-profiles, whereas enabling multi-factor authentication prevented account
-takeovers entirely (0/100). Because these attack vectors leverage valid
-credentials harvested from third-party breaches, primary password verification
-remains fundamentally insufficient. This comparison was measured in the
-experiment harness, where TOTP is implemented; the second factor was not wired
-into the Flask service, so it carries no service-level demonstration.
+The attacker supplied correct passwords for all 100 synthetic accounts but no OTPs. Without MFA, all 100 logins succeeded. With TOTP required, none succeeded. This demonstrates protection against password-only credential stuffing under the stated assumptions. MFA was evaluated in the harness and was not integrated into the Flask service.
