@@ -4,5 +4,5 @@ Passwords remain the main gatekeeper for most online accounts, and attackers kee
 
 Industry guidance addresses each. Because fast hashes such as SHA-256 let an attacker test guesses at speed, OWASP advises salted, deliberately slow hashing with Argon2id or bcrypt [2]. Bcrypt's cost factor can be raised as hardware improves [3], and Argon2 further raises the cost per guess by demanding memory [4]. For passwords used without a second factor, NIST SP 800-63B-4 sets a 15-character minimum, screens candidates against breached lists, limits failed attempts, and drops composition rules [5]. Against spraying and stuffing, OWASP identifies multi-factor authentication as the strongest defence [6]; time-based one-time passwords (TOTP) are a widespread implementation [7].
 
-Our Flask service implements all four: Argon2id storage, account lockout with per-IP rate limiting, a NIST-aligned policy, and TOTP MFA. Each defence toggles independently, letting us measure its effect in controlled before-and-after experiments.
+Our Flask service implements three: Argon2id storage, account lockout with per-IP rate limiting, and a NIST-aligned policy. TOTP was evaluated in the experiment harness. Service integration remains incomplete. Each defence toggles independently, letting us measure its effect in controlled before-and-after experiments.
 

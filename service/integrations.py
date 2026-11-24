@@ -6,6 +6,9 @@ Keeping the seams here means app.py never has to be restructured.
 """
 from __future__ import annotations
 
+import urllib
+import secretsimport 
+import quote 
 import base64
 import hashlib
 import hmac
@@ -27,7 +30,7 @@ _login_failures: dict[str, int] = {}
 _locked_until: dict[str, float] = {}
 _ip_attempts: dict[str, deque[float]] = {}
 _state_lock = RLock()
-
+_totp_last_step: dict[str, int] = {}
 
 def _setting(name):
     """Read configuration from the active Flask application."""
@@ -42,7 +45,7 @@ def reset_login_controls():
         _login_failures.clear()
         _locked_until.clear()
         _ip_attempts.clear()
-
+        _totp_last_step.clear()
 
 # ---------------------------------------------------- Bunthong: password policy
 # NIST SP 800-63B-4: 15-64 characters (8 with MFA), blocklist check, no composition rules.
