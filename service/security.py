@@ -18,7 +18,6 @@ import bcrypt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
-# Settings match report/2-methodology.md and experiment/.
 BCRYPT_COST = 12
 _ph = PasswordHasher(time_cost=3, memory_cost=64 * 1024, parallelism=1,
                      hash_len=32, salt_len=16)
@@ -29,7 +28,7 @@ def hash_password(password: str, scheme: str = "argon2id") -> str:
         return _ph.hash(password)
     if scheme == "bcrypt":
         return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=BCRYPT_COST)).decode()
-    if scheme == "md5":  # insecure baseline — comparison only, never in production
+    if scheme == "md5": 
         return "md5$" + hashlib.md5(password.encode()).hexdigest()
     raise ValueError(f"unknown hash scheme: {scheme!r}")
 

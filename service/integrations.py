@@ -6,6 +6,9 @@ Keeping the seams here means app.py never has to be restructured.
 """
 from __future__ import annotations
 
+import urllib
+import secretsimport 
+import quote 
 import base64
 import hashlib
 import hmac
@@ -25,13 +28,12 @@ from flask import current_app, has_app_context
 from config import Config
 
 
-# In-memory state for the single-process local demonstration.
 _login_failures: dict[str, int] = {}
 _locked_until: dict[str, float] = {}
 _ip_attempts: dict[str, deque[float]] = {}
 _totp_last_step: dict[str, int] = {}
 _state_lock = RLock()
-
+_totp_last_step: dict[str, int] = {}
 
 def _setting(name):
     """Read configuration from the active Flask application."""
@@ -48,9 +50,7 @@ def reset_login_controls():
         _ip_attempts.clear()
         _totp_last_step.clear()
 
-
-# ---------------------------------------------------- Bunthong: password policy
-# NIST SP 800-63B-4: 15-64 characters (8 with MFA), blocklist check, no composition rules.
+# Bunthong: this is where i wrote my password policy
 POLICY_MAX_LENGTH = 64
 _DATA = Path(__file__).resolve().parents[1] / "experiment" / "data"
 _BLOCKLIST_FILES = [_DATA / "top-10000.txt", _DATA / "wordlist-sample.txt"]
@@ -82,7 +82,6 @@ def policy_errors(password: str, mfa_enabled: bool = False) -> list[str]:
     return errors
 
 
-# ------------------------------------------------- Omar: lockout + rate limiting
 def check_lockout(username: str, now: float) -> tuple[bool, int]:
     """Return whether login is allowed and remaining lock time."""
     if not _setting("LOCKOUT_ENABLED"):
@@ -97,7 +96,7 @@ def check_lockout(username: str, now: float) -> tuple[bool, int]:
         if now < expiry:
             return False, math.ceil(expiry - now)
 
-        # The temporary lock has expired.
+        # this is when the temporary lock has expired.
         _locked_until.pop(username, None)
         _login_failures.pop(username, None)
         return True, 0
@@ -118,11 +117,10 @@ def record_login_result(
             _locked_until.pop(username, None)
             return
 
-        # Requests during a lock do not extend its duration.
         if now < _locked_until.get(username, 0):
             return
 
-        # Discard an expired lock before counting a new failure.
+        #this for us to discard an expired lock before counting a new failure.
         if username in _locked_until:
             _locked_until.pop(username, None)
             _login_failures.pop(username, None)
@@ -146,7 +144,6 @@ def check_rate_limit(ip: str, now: float) -> bool:
     with _state_lock:
         attempts = _ip_attempts.setdefault(ip, deque())
 
-        # Retain only requests inside the rolling 60-second window.
         while attempts and attempts[0] <= now - 60:
             attempts.popleft()
 
@@ -157,11 +154,10 @@ def check_rate_limit(ip: str, now: float) -> bool:
         return True
 
 
-# --------------------------------------------------------------- Kimse: TOTP MFA
+#kimse part totp mfa
 TOTP_PERIOD = 30
 TOTP_DIGITS = 6
-TOTP_DRIFT_STEPS = 1  # accept one step either side for clock drift (RFC 6238 s5.2)
-
+TOTP_DRIFT_STEPS = 1 
 
 def generate_totp_secret() -> str:
     """New random 160-bit secret, Base32-encoded, for storing in users.totp_secret."""

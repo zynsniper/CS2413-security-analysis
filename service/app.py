@@ -39,7 +39,8 @@ def create_app(config: type[Config] = Config) -> Flask:
             return _msg("username and password are required", 400)
         if db.user_exists(app.config["DB_PATH"], username):
             return _msg("username already taken", 409)
-        # [Bunthong] password policy runs here (no-op while POLICY_ENABLED is off)
+
+        #bunthong: my password policy run here
         errors = seam.policy_errors(password, mfa_enabled=app.config["MFA_ENABLED"])
         if errors:
             return _msg("rejected: " + "; ".join(errors), 400)
@@ -56,7 +57,6 @@ def create_app(config: type[Config] = Config) -> Flask:
         password = request.form.get("password") or ""
         otp = request.form.get("otp")
 
-        # [Omar] rate limit + lockout run here (no-ops while flags are off)
         if not seam.check_rate_limit(request.remote_addr or "?", now):
             return _msg("too many requests, slow down", 429)
         allowed, retry = seam.check_lockout(username, now)
@@ -69,7 +69,6 @@ def create_app(config: type[Config] = Config) -> Flask:
             seam.record_login_result(username, False, now)
             return _msg("invalid username or password", 401)
 
-        # [Kimse] second factor runs here (no-op while MFA_ENABLED is off)
         if seam.mfa_required(user) and not seam.verify_mfa(user, otp, now):
             return _msg("valid password but MFA code required/incorrect", 401)
 
@@ -89,7 +88,6 @@ def create_app(config: type[Config] = Config) -> Flask:
         return redirect(url_for("login"))
 
     def _msg(text: str, status: int = 200):
-        # Readable for curl screenshots; a browser just sees the same text.
         return (text + "\n", status, {"Content-Type": "text/plain; charset=utf-8"})
 
     return app
